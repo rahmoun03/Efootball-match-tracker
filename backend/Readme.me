@@ -1,0 +1,269 @@
+# ⚙️ eFootball Match Tracker – Django REST Backend Specification
+
+## 📌 Backend Overview
+
+This document defines the **Django REST Framework (DRF)** backend architecture for the **eFootball Match Tracker** platform.
+
+The backend provides:
+
+* Secure email-based authentication
+* Match & statistics management
+* Screenshot upload & storage
+* OCR / AI-powered data extraction
+* Clean REST APIs for a React / Next.js frontend
+
+This document is intended for **backend developers** working with **Django + DRF**.
+
+---
+
+## 🧱 Tech Stack
+
+* **Backend:** Django
+* **API:** Django REST Framework (DRF)
+* **Auth:** JWT (SimpleJWT)
+* **Database:** PostgreSQL
+* **Storage:** S3-compatible storage (or local for dev)
+* **Async Tasks:** Celery + Redis (recommended)
+* **OCR / AI:** Abstracted service (pluggable)
+
+---
+
+## 🔐 Authentication & Authorization
+
+### Authentication Method
+
+* Email + password
+* JWT-based authentication using **djangorestframework-simplejwt**
+
+### Auth Flow
+
+1. User registers with email/password
+2. User logs in and receives JWT tokens
+3. Access token required for protected endpoints
+
+### Headers
+
+```
+Authorization: Bearer <access_token>
+```
+
+---
+
+## 🧩 Core Django Apps
+
+* `accounts` – user authentication & profiles
+* `matches` – match data & statistics
+* `media` – screenshot upload & storage
+* `ocr` – OCR / AI extraction logic
+
+---
+
+## 🧩 Models (Conceptual)
+
+### User (Custom User Model)
+
+```python
+class User(AbstractBaseUser):
+    email = models.EmailField(unique=True)
+    password = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+```
+
+---
+
+### Match
+
+```python
+class Match(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    opponent_name = models.CharField(max_length=255)
+    score_user = models.IntegerField(null=True, blank=True)
+    score_opponent = models.IntegerField(null=True, blank=True)
+    stats = models.JSONField(default=dict)
+    screenshot = models.ImageField(upload_to="matches/")
+    created_at = models.DateTimeField(auto_now_add=True)
+```
+
+---
+
+## 📡 API Endpoints (DRF)
+
+### 🔑 Authentication
+
+#### Register
+
+`POST /api/auth/register/`
+
+```json
+{
+  "email": "user@email.com",
+  "password": "strongPassword"
+}
+```
+
+---
+
+#### Login
+
+`POST /api/auth/login/`
+
+```json
+{
+  "email": "user@email.com",
+  "password": "strongPassword"
+}
+```
+
+Response:
+
+```json
+{
+  "access": "jwt_access_token",
+  "refresh": "jwt_refresh_token"
+}
+```
+
+---
+
+### ⚽ Matches
+
+#### Create Match (Upload Screenshot)
+
+`POST /api/matches/`
+
+**Multipart Form Data**
+
+* `screenshot` (image file)
+* `opponent_name` (string)
+
+Response:
+
+```json
+{
+  "id": "uuid",
+  "extracted_data": { /* OCR result */ }
+}
+```
+
+---
+
+#### Update / Confirm Extracted Data
+
+`PUT /api/matches/{id}/`
+
+```json
+{
+  "score_user": 2,
+  "score_opponent": 1,
+  "stats": {
+    "possession": { "user": 55, "opponent": 45 },
+    "shots_on_target": { "user": 6, "opponent": 3 },
+    "completed_passes": { "user": 120, "opponent": 98 }
+  }
+}
+```
+
+---
+
+#### List Matches
+
+`GET /api/matches/`
+
+---
+
+#### Retrieve Match
+
+`GET /api/matches/{id}/`
+
+---
+
+#### Delete Match
+
+`DELETE /api/matches/{id}/`
+
+---
+
+## 🧠 OCR / AI Processing Flow (Django)
+
+1. Screenshot uploaded via API
+2. Image saved to storage
+3. Celery task triggered for OCR processing
+4. OCR service extracts raw text
+5. Data normalized into structured stats
+6. Result saved to `Match.stats`
+7. Frontend receives extracted data for validation
+
+⚠️ OCR logic must be **decoupled** from views and replaceable.
+
+---
+
+## 📊 Statistics Endpoints
+
+### Summary Statistics
+
+`GET /api/stats/summary/`
+
+Returns:
+
+* Total matches
+* Wins / Draws / Losses
+* Goals scored / conceded
+* Averages per match
+
+---
+
+## 🔒 Permissions & Security
+
+* `IsAuthenticated` on all match endpoints
+* Users can only access their own matches
+* Passwords hashed using Django’s password hasher
+* Image type & size validation
+* Rate limiting on auth endpoints
+
+---
+
+## 🧪 Error Handling
+
+Standard DRF error response:
+
+```json
+{
+  "detail": "Readable error message"
+}
+```
+
+---
+
+## 🚀 Development Phases
+
+### Phase 1 (MVP)
+
+* Auth (JWT)
+* Match CRUD
+* Screenshot upload
+* OCR integration
+
+### Phase 2
+
+* Stats aggregation
+* Async optimization
+
+### Phase 3
+
+* Friend confirmation flow
+* Shared match records
+
+---
+
+## 📝 Notes for Antigravity
+
+* Use **ViewSets + Routers** where possible
+* Keep OCR service abstracted
+* Prefer service-layer logic over fat views
+* Mobile-first API design
+
+---
+
+**Owner:** Ayoub Rahmoun
+**Project:** eFootball Match Tracker
+**Backend:** Django REST Framework

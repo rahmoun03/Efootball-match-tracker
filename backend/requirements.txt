@@ -1,0 +1,9 @@
+Django>=5.0
+djangorestframework
+djangorestframework-simplejwt
+celery
+redis
+django-cors-headers
+Pillow
+python-dotenv
+# psycopg2-binary
